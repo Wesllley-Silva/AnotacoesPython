@@ -4,30 +4,38 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-import smtplib # NOVO: Importa a biblioteca SMTP
-from email.mime.text import MIMEText # NOVO: Para criar a mensagem de e-mail
+import smtplib 
+from email.mime.text import MIMEText 
+# Para evitar erros de charset e garantir o funcionamento correto de MIMEText
+from email.header import Header
 
 # ----------------------------------------------------
-# NOVO: Funções para formatar e enviar o e-mail
+# CONFIGURAÇÕES GLOBAIS
+# ----------------------------------------------------
+# Seu link para a calculadora
+CALCULADORA_URL = "https://wesllley-silva.github.io/CalculadoraDutching/index.html"
+
+# ----------------------------------------------------
+# FUNÇÕES DE E-MAIL
 # ----------------------------------------------------
 
 def formatar_dados_para_email(dados):
     """
-    Formata a lista de dicionários de dados extraídos em uma string de texto legível.
+    Formata a lista de dicionários de dados extraídos em uma string de texto legível (texto simples).
     """
     if not dados:
         return "Nenhuma aposta segura encontrada na extração."
 
-    corpo_email = "✨ Dados Extraídos da Tabela Surebet: ✨\n\n"
+    corpo_email = "✨ Dados Extraídos da Tabela com Sucesso: ✨\n\n"
     corpo_email += "=" * 80 + "\n\n"
 
     for item in dados:
         # Linha principal com Evento, Modalidade e Lucro
-        corpo_email += f"**Evento**: {item['Evento Principal']} ({item['Modalidade']}) | **Lucro/Tempo**: {item['Lucro/Tempo']}\n"
+        corpo_email += f"Evento: {item['Evento Principal']} ({item['Modalidade']}) | Lucro/Tempo: {item['Lucro/Tempo']}\n"
         
         # Detalhes das entradas
         for i, aposta in enumerate(item['Entradas']):
-            corpo_email += f"  Entrada {i+1} 🚀 Casa: {aposta['Casa de Aposta']} | Chance: {aposta['Chance']} | Mercado: {aposta['Mercado']} | Data/Hora: {aposta['Data/Hora']}\n"
+            corpo_email += f"  Entrada {i+1} 🚀: {aposta['Casa de Aposta']} | Chance: {aposta['Chance']} | Mercado: {aposta['Mercado']} | Data/Hora: {aposta['Data/Hora']}\n"
         
         corpo_email += "-" * 80 + "\n"
         
@@ -35,23 +43,43 @@ def formatar_dados_para_email(dados):
 
 def enviar_email(dados, remetente, senha_app, destinatario):
     """
-    Formata os dados e envia o e-mail usando o servidor SMTP do Gmail.
+    Formata os dados em HTML, adiciona o link da calculadora e envia o e-mail.
     """
-    corpo_email = formatar_dados_para_email(dados)
-    assunto = "Relatório de Surebets Diárias"
+    # 1. Formata os dados no formato de texto (para a estrutura)
+    corpo_email_texto = formatar_dados_para_email(dados)
+
+    # 2. Converte para HTML e adiciona o link
+    # Converte as quebras de linha para <br>
+    corpo_email_html = corpo_email_texto.replace('\n', '<br>')
     
-    # Cria o objeto da mensagem
-    msg = MIMEText(corpo_email)
-    msg['Subject'] = assunto
+    # Adiciona o link formatado como botão no final do corpo do e-mail
+    link_html = f'''
+    <br>
+    <hr style="border: 1px solid #eee;">
+    <h3 style="color: #007bff;">🔗 Ferramenta Útil</h3>
+    <p>Clique no link abaixo para acessar a **Calculadora*:</p>
+    <p>
+        <a href="{CALCULADORA_URL}" style="padding: 12px 25px; background-color: #28a745; color: white; text-decoration: none; border-radius: 8px; font-size: 16px; font-weight: bold; display: inline-block;">
+            Abrir a Calculadora 🚀
+        </a>
+    </p>
+    <br>
+    '''
+    corpo_email_html += link_html
+    
+    assunto = "Relatório"
+    
+    # Cria o objeto da mensagem como HTML
+    msg = MIMEText(corpo_email_html, 'html', 'utf-8')
+    msg['Subject'] = Header(assunto, 'utf-8')
     msg['From'] = remetente
     msg['To'] = destinatario
 
     # Conexão com o servidor SMTP do Gmail
     try:
-        # O Gmail usa o host 'smtp.gmail.com' e a porta 587 (TLS/STARTTLS)
         server = smtplib.SMTP('smtp.gmail.com', 587)
         server.ehlo()
-        server.starttls() # Inicia a segurança TLS
+        server.starttls() 
         server.login(remetente, senha_app)
         server.sendmail(remetente, destinatario, msg.as_string())
         server.close()
@@ -62,14 +90,13 @@ def enviar_email(dados, remetente, senha_app, destinatario):
 
 
 # ----------------------------------------------------
-# Código Original (extrair_dados_surebets)
+# FUNÇÃO DE EXTRAÇÃO DE DADOS (Inalterada)
 # ----------------------------------------------------
 
 def extrair_dados_surebets(url, driver_instance):
     """
-    [... Código da sua função original aqui ...]
+    Função original para extrair os dados da tabela.
     """
-    # ... (O corpo desta função permanece inalterado) ...
     driver = driver_instance
     
     print("Navegando para o URL...")
@@ -89,7 +116,7 @@ def extrair_dados_surebets(url, driver_instance):
     surebet_records = driver.find_elements(By.CLASS_NAME, "surebet_record")
     
     if not surebet_records:
-        print("Nenhum registro de aposta segura encontrado.")
+        print("Nenhum registro encontrado.")
         return []
 
     dados_extraidos = []
@@ -158,10 +185,6 @@ def extrair_dados_surebets(url, driver_instance):
                 
                 data_hora = time_elements[0].text.strip().replace('\n', ' ') if time_elements else "N/A"
                 
-                # O evento/liga desta linha pode ser diferente, vamos extrair para garantir
-                evento_row_element = row.find_elements(By.CLASS_NAME, "event")
-                evento_row = evento_row_element[0].text.split('\n') if evento_row_element else []
-                
                 apostas_detalhes.append({
                     "Casa de Aposta": casa_aposta,
                     "Data/Hora": data_hora,
@@ -175,26 +198,28 @@ def extrair_dados_surebets(url, driver_instance):
         
         # Adiciona o bloco completo de apostas no formato novo
         if apostas_detalhes:
-             dados_extraidos.append({
-                 "Evento Principal": evento_completo,
-                 "Modalidade": modalidade,
-                 "Lucro/Tempo": lucro_tempo,
-                 "Entradas": apostas_detalhes
-             })
+              dados_extraidos.append({
+                  "Evento Principal": evento_completo,
+                  "Modalidade": modalidade,
+                  "Lucro/Tempo": lucro_tempo,
+                  "Entradas": apostas_detalhes
+              })
 
 
     return dados_extraidos
 
 
-# --- Configuração e Execução Principal (Com Envio de Email) ---
+# ----------------------------------------------------
+# EXECUÇÃO PRINCIPAL
+# ----------------------------------------------------
 if __name__ == "__main__":
     
     # =========================================================================
-    # 🚨 ONDE COLOCAR O E-MAIL E A SENHA 🚨
-    # Você deve definir seu e-mail do Gmail, a Senha de App e o destinatário aqui.
+    # 🚨 DADOS DE AUTENTICAÇÃO E DESTINATÁRIOS 🚨
     # =========================================================================
     EMAIL_REMETENTE = "wesllleygsilva@gmail.com" 
-    SENHA_APP = "wbetunfsjfzbhfyu" # <-- USE ESTA SENHA DE APP AGORA
+    # Senha de App do Google de 16 dígitos:
+    SENHA_APP = "wbetunfsjfzbhfyu" 
     EMAIL_DESTINATARIO = "wsplaytvonline@gmail.com"
     # =========================================================================
     
@@ -213,18 +238,18 @@ if __name__ == "__main__":
 
     # 4. Processar e Imprimir os Resultados no Novo Formato
     print("\n" + "="*80)
-    print("✨ Dados Extraídos da Tabela Surebet (Formato Limpo): ✨")
+    print("✨ Dados Extraídos (Formato Limpo): ✨")
     print("="*80)
 
     if dados:
         # Imprime o formato de saída no console (igual ao original)
         for item in dados:
-            print(f"**Evento**: {item['Evento Principal']} ({item['Modalidade']}) | **Lucro/Tempo**: **{item['Lucro/Tempo']}**")
+            print(f"Evento: {item['Evento Principal']} ({item['Modalidade']}) | Lucro/Tempo: {item['Lucro/Tempo']}")
             for i, aposta in enumerate(item['Entradas']):
-                print(f"Entrada {i+1} 🚀 **Casa**: {aposta['Casa de Aposta']} | **Chance**: {aposta['Chance']} | **Mercado**: {aposta['Mercado']} | **Data/Hora**: {aposta['Data/Hora']}")
+                print(f"Entrada {i+1} 🚀 : {aposta['Casa de Aposta']} | Chance: {aposta['Chance']} | Mercado: {aposta['Mercado']} | Data/Hora: {aposta['Data/Hora']}")
             print("-" * 80)
             
-        # ⚡️ NOVO: Enviar o e-mail após a extração bem-sucedida
+        # ⚡️ Enviar o e-mail com o link
         enviar_email(dados, EMAIL_REMETENTE, SENHA_APP, EMAIL_DESTINATARIO)
 
     else:
