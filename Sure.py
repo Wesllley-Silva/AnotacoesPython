@@ -15,6 +15,13 @@ from email.header import Header
 # Seu link para a calculadora
 CALCULADORA_URL = "https://wesllley-silva.github.io/CalculadoraDutching/index.html"
 
+# Dicionário de Mapeamento para Renomear as Casas
+MAP_CASAS_APOSTAS = {
+    "Stake (BR)new": "Stake",  # Original: Stake (BR)new -> Novo: Stake
+    "Betano (BR)": "Betano",   # Original: Betano (BR) -> Novo: Betano
+    "Pinnacle888 (Asian)": "Pinnacle"  # Original: Pinnacle888 (Asian) -> Novo: Pinnacle
+    # Adicione mais casas conforme necessário
+}
 # ----------------------------------------------------
 # FUNÇÕES DE E-MAIL
 # ----------------------------------------------------
@@ -90,12 +97,12 @@ def enviar_email(dados, remetente, senha_app, destinatario):
 
 
 # ----------------------------------------------------
-# FUNÇÃO DE EXTRAÇÃO DE DADOS (Inalterada)
+# FUNÇÃO DE EXTRAÇÃO DE DADOS 
 # ----------------------------------------------------
 
 def extrair_dados_surebets(url, driver_instance):
     """
-    Função original para extrair os dados da tabela.
+    Função original para extrair os dados da tabela, agora com renomeação de casas.
     """
     driver = driver_instance
     
@@ -176,7 +183,11 @@ def extrair_dados_surebets(url, driver_instance):
 
                 # Extração segura e limpeza de dados
                 # A casa de aposta está na primeira linha (antes do \n)
-                casa_aposta = booker_elements[0].text.split('\n')[0].strip()
+                casa_aposta_original = booker_elements[0].text.split('\n')[0].strip()
+                
+                # 🔄 Renomear a casa de aposta usando o dicionário MAP_CASAS_APOSTAS
+                # Se a chave não existir, ele usa o nome original
+                casa_aposta_renomeada = MAP_CASAS_APOSTAS.get(casa_aposta_original, casa_aposta_original)
                 
                 mercado = coeff_elements[0].text.strip() if coeff_elements else "N/A"
                 
@@ -186,7 +197,7 @@ def extrair_dados_surebets(url, driver_instance):
                 data_hora = time_elements[0].text.strip().replace('\n', ' ') if time_elements else "N/A"
                 
                 apostas_detalhes.append({
-                    "Casa de Aposta": casa_aposta,
+                    "Casa de Aposta": casa_aposta_renomeada,
                     "Data/Hora": data_hora,
                     "Mercado": mercado,
                     "Chance": chance
@@ -198,12 +209,12 @@ def extrair_dados_surebets(url, driver_instance):
         
         # Adiciona o bloco completo de apostas no formato novo
         if apostas_detalhes:
-              dados_extraidos.append({
-                  "Evento Principal": evento_completo,
-                  "Modalidade": modalidade,
-                  "Lucro/Tempo": lucro_tempo,
-                  "Entradas": apostas_detalhes
-              })
+             dados_extraidos.append({
+                 "Evento Principal": evento_completo,
+                 "Modalidade": modalidade,
+                 "Lucro/Tempo": lucro_tempo,
+                 "Entradas": apostas_detalhes
+               })
 
 
     return dados_extraidos
@@ -242,10 +253,11 @@ if __name__ == "__main__":
     print("="*80)
 
     if dados:
-        # Imprime o formato de saída no console (igual ao original)
+        # Imprime o formato de saída no console (agora com nomes renomeados)
         for item in dados:
             print(f"Evento: {item['Evento Principal']} ({item['Modalidade']}) | Lucro/Tempo: {item['Lucro/Tempo']}")
             for i, aposta in enumerate(item['Entradas']):
+                # Aposta['Casa de Aposta'] já está renomeada
                 print(f"Entrada {i+1} 🚀 : {aposta['Casa de Aposta']} | Chance: {aposta['Chance']} | Mercado: {aposta['Mercado']} | Data/Hora: {aposta['Data/Hora']}")
             print("-" * 80)
             
